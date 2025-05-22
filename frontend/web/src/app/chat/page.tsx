@@ -150,7 +150,7 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
     }
 }
 
-const TYPING_SPEED_MS = 30; // Milliseconds per chunk for simulated typing
+const TYPING_SPEED_MS = 5; // Milliseconds per chunk for simulated typing
 
 const simulateTyping = (
     dispatch: React.Dispatch<ChatAction>,
@@ -343,8 +343,9 @@ export default function ChatPage() {
     return (
         <div className="flex flex-col h-[calc(100dvh-0px)] bg-white dark:bg-gray-900">
             {/* Header */}
-            <header className="sticky top-0 z-10 flex items-center justify-between p-3 border-b bg-white dark:bg-gray-800 shadow-sm h-[60px]">
-                <h1 className="text-xl font-semibold text-gray-800 dark:text-white">AI Agent UI</h1>
+            <header className="sticky top-0 z-10 flex items-center justify-between p-3 bg-white dark:bg-gray-800 h-[60px]">
+                {/* <h1 className="text-xl font-semibold text-gray-800 dark:text-white">AI Agent UI</h1> */}
+                <div className="flex-grow"></div> {/* Added to push buttons to the right if h1 is removed or empty */}
                 <div className="flex items-center gap-2">
                     <button
                         onClick={handleReset}
@@ -379,24 +380,21 @@ export default function ChatPage() {
             {hasStarted && !isAtBottom && (
                  <button
                     onClick={scrollToBottom}
-                    className="fixed bottom-20 right-4 z-20 p-2 bg-gray-700 dark:bg-gray-200 text-white dark:text-black rounded-full shadow-lg hover:bg-gray-800 dark:hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-600 dark:focus:ring-gray-400 transition-opacity duration-300"
+                    className="fixed bottom-24 left-1/2 -translate-x-1/2 z-20 p-2 bg-gray-700 dark:bg-gray-200 text-white dark:text-black rounded-full shadow-lg hover:bg-gray-800 dark:hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-600 dark:focus:ring-gray-400 transition-opacity duration-300"
                     aria-label="Scroll to bottom"
                  >
                      <ChevronDown size={20} />
                  </button>
             )}
 
-            {/* Input Area - pass chatInput and setChatInput for controlled component */}
-            <div className="p-2 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+            {/* Input Area - This outer div will be sticky */}
+            <div className="sticky bottom-0 z-10 p-6 bg-gray-50 dark:bg-gray-850">
                  <ChatInput
                     onSendMessage={handleSendMessage}
                     onReset={handleReset}
                     isLoading={isLoading}
-                    // The 'sticky' prop could be controlled by state if needed, or set directly.
-                    // For now, assuming it's managed internally or passed if ChatPage had such a prop.
-                    // For this refactor, I'm focusing on the core logic.
-                    // Let's make it sticky by default as per typical chat UIs.
-                    sticky={true} 
+                    // Set sticky to false as the parent div now handles stickiness
+                    sticky={false} 
                 />
             </div>
         </div>
