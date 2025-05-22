@@ -14,7 +14,6 @@ app = FastAPI()
 # Pydantic model for the chat request
 class UserPayload(BaseModel): 
     user_message: str
-    instructions: str | None = None # Optional instructions for the AI
 
 # Permissive CORS settings
 app.add_middleware(
@@ -38,24 +37,17 @@ async def read_root():
 
 @app.post("/chat")
 async def handle_chat(payload: UserPayload):
-    # For now, using a default session_id. Later, this could come from the request (e.g., headers, cookie).
     current_session_id = DEFAULT_SESSION_ID 
 
     print(f"Session [{current_session_id}] received user message: {payload.user_message}")
-    if payload.instructions:
-        print(f"Session [{current_session_id}] received instructions: {payload.instructions}")
 
-    # Add user message to history for the current session
     add_message_to_session_history(session_id=current_session_id, role="user", content=payload.user_message)
 
-    # Get the current history for the API call for this session
     current_history = get_session_history(session_id=current_session_id)
     print(f"Session [{current_session_id}] current history being sent to AI: {current_history}")
     
-    # Pass instructions to chat_loop_1. If not provided, it will use its default or None.
     ai_full_response_object = chat_loop_1(
-        input_messages=current_history, 
-        instructions=payload.instructions
+        input_messages=current_history 
     ) 
     
     # Log the raw object and its type for backend debugging

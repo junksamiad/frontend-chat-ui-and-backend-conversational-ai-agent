@@ -340,10 +340,12 @@ export default function ChatPage() {
             {/* Message Area */}
             <div
                 ref={scrollRef}
-                className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-850 scroll-smooth" 
+                className="flex-1 overflow-y-auto py-4 bg-gray-50 dark:bg-gray-850 scroll-smooth" 
                 onScroll={handleScroll}
             >
-                <ChatMessages messages={orderedMessages} loadingMessageId={loadingMessageId} />
+                <div className="mx-auto max-w-3xl px-4"> {/* Centered, max-width container for messages */}
+                    <ChatMessages messages={orderedMessages} loadingMessageId={loadingMessageId} />
+                </div>
             </div>
             
             {/* Scroll to very bottom button */}

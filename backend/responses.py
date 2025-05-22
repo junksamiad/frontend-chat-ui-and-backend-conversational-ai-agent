@@ -21,9 +21,10 @@ def chat_loop_1(input_messages: list, instructions: str | None = None):
         api_params = {
             "model": "gpt-4.1",
             "input": input_messages,
-            "store": False  # Ensure store is set to False
+            "store": False,  # Ensure store is set to False
+            "instructions": "You are a helpful chatbot. Answer IN ALL CAPS." # Default instruction
         }
-        if instructions: # Only add instructions if provided
+        if instructions: # Only add instructions if provided (will override the default)
             api_params["instructions"] = instructions
         
         response = client.responses.create(**api_params)
