@@ -191,6 +191,10 @@ export default function ChatPage() {
 
     // Ref for the scrollable message container
     const scrollRef = useRef<HTMLDivElement>(null);
+    // State to track if scroll is at the very bottom
+    const [isScrolledToVeryBottom, setIsScrolledToVeryBottom] = useState(true);
+    // State to control visibility of scroll to bottom button
+    const [showScrollDownButton, setShowScrollDownButton] = useState(false);
     const [chatInput, setChatInput] = useState(''); // Added for controlled ChatInput
 
     // Refs for scroll behavior management
@@ -204,6 +208,40 @@ export default function ChatPage() {
             messageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     }, []); // scrollRef is stable
+
+    const scrollToVeryBottom = useCallback(() => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollTo({
+                top: scrollRef.current.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+    }, []);
+
+    const handleScroll = useCallback(() => {
+        const el = scrollRef.current;
+        if (!el) {
+            setShowScrollDownButton(false);
+            setIsScrolledToVeryBottom(true);
+            return;
+        }
+        const isAtAbsoluteBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 10; // Small threshold
+        setIsScrolledToVeryBottom(isAtAbsoluteBottom);
+        setShowScrollDownButton(!isAtAbsoluteBottom && el.scrollHeight > el.clientHeight); // Show if not at bottom AND scrollable
+    }, []);
+
+    // Scroll listener effect for the scroll-down button
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+
+        el.addEventListener('scroll', handleScroll, { passive: true });
+        handleScroll(); // Initial check
+
+        return () => {
+            el.removeEventListener('scroll', handleScroll);
+        };
+    }, [handleScroll]);
 
     // Add handler for resetting chat
     const handleReset = useCallback(() => {
@@ -303,10 +341,22 @@ export default function ChatPage() {
             <div
                 ref={scrollRef}
                 className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-850 scroll-smooth" 
+                onScroll={handleScroll}
             >
                 <ChatMessages messages={orderedMessages} loadingMessageId={loadingMessageId} />
             </div>
             
+            {/* Scroll to very bottom button */}
+            {showScrollDownButton && (
+                 <button
+                    onClick={scrollToVeryBottom}
+                    className="fixed bottom-32 left-1/2 -translate-x-1/2 z-20 p-2 bg-gray-700 dark:bg-gray-200 text-white dark:text-black rounded-full shadow-lg hover:bg-gray-800 dark:hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-600 dark:focus:ring-gray-400 transition-opacity duration-300"
+                    aria-label="Scroll to bottom"
+                 >
+                     <ChevronDown size={20} />
+                 </button>
+            )}
+
             {/* Input Area - This outer div will be sticky */}
             <div className="sticky bottom-0 z-10 p-8 bg-gray-50 dark:bg-gray-850">
                  <ChatInput
