@@ -191,85 +191,22 @@ export default function ChatPage() {
 
     // Ref for the scrollable message container
     const scrollRef = useRef<HTMLDivElement>(null);
-    // Ref for the sentinel element at the end of messages
-    const endOfMessagesRef = useRef<HTMLDivElement>(null);
-    // State to track if scroll is at the bottom
-    const [isAtBottom, setIsAtBottom] = useState(true);
-    // State to control visibility of scroll to bottom button
-    const [showScrollButton, setShowScrollButton] = useState(false);
     const [chatInput, setChatInput] = useState(''); // Added for controlled ChatInput
 
     // Refs for scroll behavior management
     const userJustSentRef = useRef(false); 
     const lastUserSend = useRef<number>(0);
 
-    // Helper to scroll the sentinel into view (guaranteed to exist when chat has started)
-    const scrollMessagesToBottom = useCallback((smooth: boolean = true) => {
-        if (endOfMessagesRef.current) {
-            endOfMessagesRef.current.scrollIntoView({
-                behavior: smooth ? 'smooth' : 'auto',
-                block: 'start',
-            });
-        } else if (scrollRef.current) {
-            // Fallback: manual scroll
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    // Helper to scroll a specific message to the top of the viewport
+    const scrollToMessageTop = useCallback((messageId: string) => {
+        const messageElement = scrollRef.current?.querySelector(`[data-msg-id="${messageId}"]`);
+        if (messageElement) {
+            messageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-    }, []);
-
-    // Scroll to bottom effect (keep as is for now, depends on loadingMessageId)
-    useEffect(() => {
-        if (Date.now() - lastUserSend.current < 300) return;
-        // Note: This still scrolls based on loadingMessageId, which might need adjustment
-        // if we want it purely based on the IntersectionObserver state later.
-        if (scrollRef.current && loadingMessageId) { 
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-    }, [orderedMessages.length, loadingMessageId]);
-
-    // Define handleScroll at the component level
-    const handleScroll = useCallback(() => {
-        const el = scrollRef.current;
-        if (!el) return;
-        const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120; // Threshold for showing button
-        setIsAtBottom(atBottom);
-        setShowScrollButton(!atBottom);
-    }, [scrollRef]); // Dependency: scrollRef
-
-    // Scroll listener effect
-    useEffect(() => {
-        const el = scrollRef.current;
-        if (!hasStarted || !el) return;
-
-        el.addEventListener('scroll', handleScroll, { passive: true });
-        handleScroll(); // Initial check to set button visibility
-
-        return () => {
-            el.removeEventListener('scroll', handleScroll);
-        };
-    }, [hasStarted, scrollRef, handleScroll]); // Added handleScroll to dependencies
-
-    // Auto-scroll after every new message
-    useEffect(() => {
-        // Keep view pinned to bottom while assistant streaming, unless user scrolled up.
-        if (!userJustSentRef.current && isAtBottom) {
-            scrollMessagesToBottom(false);
-        }
-        // reset signal
-        if (userJustSentRef.current) userJustSentRef.current = false;
-    }, [messageOrder, isAtBottom, scrollMessagesToBottom]);
-
-    const scrollToBottom = () => {
-        if (scrollRef.current) {
-             scrollRef.current.scrollTo({
-                 top: scrollRef.current.scrollHeight,
-                 behavior: 'smooth'
-             });
-        }
-    };
+    }, []); // scrollRef is stable
 
     // Add handler for resetting chat
     const handleReset = useCallback(() => {
-        // Could add confirmation dialog here if desired
         dispatch({ type: 'RESET_CHAT' });
     }, [dispatch]);
 
@@ -283,6 +220,9 @@ export default function ChatPage() {
         };
         dispatch({ type: 'ADD_USER_MESSAGE', payload: userInput });
         
+        // Scroll the new user message to the top after a brief delay for DOM update
+        setTimeout(() => scrollToMessageTop(userInput.id), 0);
+
         userJustSentRef.current = true;
         lastUserSend.current = Date.now();
 
@@ -292,9 +232,8 @@ export default function ChatPage() {
             payload: { id: assistantMessageId, agentName: 'Assistant' } 
         });
 
-        // --- Original backend call (now targeting the simple test backend) ---
         try {
-            const response = await fetch('http://localhost:8001/chat', { // <<< CHANGED TO PORT 8001
+            const response = await fetch('http://localhost:8001/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -308,44 +247,38 @@ export default function ChatPage() {
             }
 
             const data = await response.json();
-            // The simple backend returns: {"role": "assistant", "content": "Simple backend confirmation: I received 'user_message'"}
-            // We can use its role and content directly, or simulate typing as before.
-            // For this test, let's keep the simulateTyping to ensure that part is also re-tested.
-            simulateTyping(dispatch, assistantMessageId, data.content, data.role); // Pass role as agentName
+            simulateTyping(dispatch, assistantMessageId, data.content, data.role);
 
         } catch (error) {
             console.error("Failed to send message to simple backend:", error);
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred with simple backend";
             dispatch({ type: 'SET_ERROR', payload: { errorContent: errorMessage } });
         }
-    }, [dispatch]);
+    }, [dispatch, scrollToMessageTop]);
 
     // Effect for initial welcome message
     useEffect(() => {
-        // Only run once on mount if no messages exist
         if (state.messageOrder.length === 0) {
             const welcomeMessageId = `assistant-welcome-${Date.now()}`;
             const welcomeText = "Hello! I'm your AI Assistant, powered by a JSON API. How can I help you today?";
             
-            // Start assistant message (sets loading state, creates placeholder)
-            // The reducer for START_ASSISTANT_MESSAGE will set global isLoading to true
             dispatch({ 
                 type: 'START_ASSISTANT_MESSAGE', 
                 payload: { id: welcomeMessageId, agentName: 'AI Assistant' } 
             });
             
-            // Simulate typing for the welcome message
             simulateTyping(dispatch, welcomeMessageId, welcomeText, 'AI Assistant');
+            // Scroll the welcome message to the top
+            setTimeout(() => scrollToMessageTop(welcomeMessageId), 0);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dispatch]); // Removed state.messageOrder.length from deps to ensure it runs only once as intended initially
+    }, [dispatch, scrollToMessageTop, state.messageOrder.length]);
 
     return (
         <div className="flex flex-col h-[calc(100dvh-0px)] bg-white dark:bg-gray-900">
             {/* Header */}
             <header className="sticky top-0 z-10 flex items-center justify-between p-3 bg-white dark:bg-gray-800 h-[60px]">
                 {/* <h1 className="text-xl font-semibold text-gray-800 dark:text-white">AI Agent UI</h1> */}
-                <div className="flex-grow"></div> {/* Added to push buttons to the right if h1 is removed or empty */}
+                <div className="flex-grow"></div> 
                 <div className="flex items-center gap-2">
                     <button
                         onClick={handleReset}
@@ -356,7 +289,7 @@ export default function ChatPage() {
                         Clear Chat
                     </button>
                     <a
-                        href="/" // Assuming home is the root
+                        href="/" 
                         className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors text-sm flex items-center gap-1.5"
                         aria-label="Go to Home"
                     >
@@ -369,31 +302,17 @@ export default function ChatPage() {
             {/* Message Area */}
             <div
                 ref={scrollRef}
-                className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-850 scroll-smooth" // Added scroll-smooth
-                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-850 scroll-smooth" 
             >
                 <ChatMessages messages={orderedMessages} loadingMessageId={loadingMessageId} />
-                <div ref={endOfMessagesRef} />
             </div>
             
-            {/* Scroll to bottom button */}
-            {hasStarted && !isAtBottom && (
-                 <button
-                    onClick={scrollToBottom}
-                    className="fixed bottom-24 left-1/2 -translate-x-1/2 z-20 p-2 bg-gray-700 dark:bg-gray-200 text-white dark:text-black rounded-full shadow-lg hover:bg-gray-800 dark:hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-600 dark:focus:ring-gray-400 transition-opacity duration-300"
-                    aria-label="Scroll to bottom"
-                 >
-                     <ChevronDown size={20} />
-                 </button>
-            )}
-
             {/* Input Area - This outer div will be sticky */}
-            <div className="sticky bottom-0 z-10 p-6 bg-gray-50 dark:bg-gray-850">
+            <div className="sticky bottom-0 z-10 p-8 bg-gray-50 dark:bg-gray-850">
                  <ChatInput
                     onSendMessage={handleSendMessage}
                     onReset={handleReset}
                     isLoading={isLoading}
-                    // Set sticky to false as the parent div now handles stickiness
                     sticky={false} 
                 />
             </div>
